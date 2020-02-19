@@ -3,76 +3,68 @@
 # (C) 2020 by Folkert van Heusden <mail@vanheusden.com>
 # released under AGPL v3.0
 
+import multiprocessing
 import sys
+import threading
 import time
 from inspect import getframeinfo, stack
 from z80 import z80
 from screen_kb_dummy import screen_kb_dummy
 
-pages = dk = cpu = io = slots = None
+nproc = 12
+file_ = '/data/rlc.dat'
 
-def init_test():
-    global io
-    global slots
-    global pages
-    global dk
-    global cpu
+class msx:
+    def __init__(self):
+        self.io = [ 0 ] * 256
 
-    io = [ 0 ] * 256
+        ram0 = [ 0 ] * 16384
+        ram1 = [ 0 ] * 16384
+        ram2 = [ 0 ] * 16384
+        ram3 = [ 0 ] * 16384
 
-    ram0 = [ 0 ] * 16384
-    ram1 = [ 0 ] * 16384
-    ram2 = [ 0 ] * 16384
-    ram3 = [ 0 ] * 16384
+        self.slots = [ ] # slots
+        self.slots.append(( ram0, None, None, None ))
+        self.slots.append(( ram1, None, None, None ))
+        self.slots.append(( ram2, None, None, None ))
+        self.slots.append(( ram3, None, None, None ))
 
-    slots = [ ] # slots
-    slots.append(( ram0, None, None, None ))
-    slots.append(( ram1, None, None, None ))
-    slots.append(( ram2, None, None, None ))
-    slots.append(( ram3, None, None, None ))
+        self.pages = [ 0, 0, 0, 0 ]
 
-    pages = [ 0, 0, 0, 0 ]
+        self.dk = screen_kb_dummy(self.io)
+        self.dk.start()
 
-    dk = screen_kb_dummy(io)
-    dk.start()
+        self.cpu = z80(self.read_mem, self.write_mem, self.read_io, self.write_io, self.debug, self.dk)
 
-    cpu = z80(read_mem, write_mem, read_io, write_io, debug, dk)
+    def read_mem(self, a):
+        page = a >> 14
 
-def read_mem(a):
-    global slots
-    global pages
+        if self.slots[page][self.pages[page]] == None:
+            assert False
 
-    page = a >> 14
+        return self.slots[page][self.pages[page]][a & 0x3fff]
 
-    if slots[page][pages[page]] == None:
-        assert False
+    def write_mem(self, a, v):
+        assert v >= 0 and v <= 255
 
-    return slots[page][pages[page]][a & 0x3fff]
+        page = a >> 14
 
-def write_mem(a, v):
-    global slots
-    global pages
+        if self.slots[page][self.pages[page]] == None:
+            assert False
 
-    assert v >= 0 and v <= 255
+        self.slots[page][self.pages[page]][a & 0x3fff] = v
 
-    page = a >> 14
+    def read_io(self, a):
+        return self.io[a]
+     
+    def write_io(self, a, v):
+        self.io[a] = v
 
-    if slots[page][pages[page]] == None:
-        assert False
-
-    slots[page][pages[page]][a & 0x3fff] = v
-
-def read_io(a):
-    return io[a]
- 
-def write_io(a, v):
-    io[a] = v
-
-def debug(x):
-    #fh = open('debug.log', 'a+')
-    #fh.write('%s\n' % x)
-    #fh.close()
-    pass
+    def debug(self, x):
+        #fh = open('debug.log', 'a+')
+        #fh.write('%s\n' % x)
+        #fh.close()
+        pass
 
 def flag_str(f):
     flags = ''
@@ -100,125 +92,168 @@ def my_assert(before, after, v1, v2):
         print('%s:%d' % (caller.filename, caller.lineno))
         sys.exit(1)
 
-startt = pt = time.time()
-lines = ntests = 0
-before = after = None
-for line in open('/tmp/rlc.dat', 'r'):
+def worker(q, show):
+    print('Thread started')
+
+    pt = startt = time.time()
+    n_tests = 0
+
+    first = True
+
+    while True:
+        item = q.get()
+        if item == None:
+            break
+
+        if first:
+            first = False
+            print('Processing started')
+
+        m = msx()
+
+        before = after = None
+
+        for line in item:
+            line = line.rstrip()
+            parts = line.split()
+            i = 1
+
+            if parts[0] == 'before':
+                before = line
+
+                memp = 0
+                while parts[i] != '|':
+                    m.write_mem(memp, int(parts[i], 16))
+                    i += 1
+                    memp += 1
+
+                i += 1  # skip |
+                i += 1  # skip endaddr
+                i += 1  # skip cycles
+
+                m.cpu.a, m.cpu.f = m.cpu.u16(int(parts[i], 16))
+                i += 1
+                m.cpu.b, m.cpu.c = m.cpu.u16(int(parts[i], 16))
+                i += 1
+                m.cpu.d, m.cpu.e = m.cpu.u16(int(parts[i], 16))
+                i += 1
+                m.cpu.h, m.cpu.l = m.cpu.u16(int(parts[i], 16))
+                i += 1
+
+                i += 1 # AF_
+                i += 1 # BC_
+                i += 1 # DE_
+                i += 1 # HL_
+
+                m.cpu.ix = int(parts[i], 16)
+                i += 1
+
+                m.cpu.iy = int(parts[i], 16)
+                i += 1
+
+            elif parts[0] == 'memchk':
+                my_assert(before, line, m.read_mem(int(parts[1], 16)), int(parts[2], 16))
+
+            else:
+                after = line
+                while parts[i] != '|':
+                    i += 1
+
+                i += 1  # skip |
+
+                endaddr = int(parts[i], 16)
+                i += 1
+
+                expcycles = int(parts[i])
+                i += 1
+
+                cycles = 0
+                while m.cpu.pc < endaddr:
+                    cycles += m.cpu.step()
+
+                # my_assert(before, line, cycles, expcycles)
+
+                my_assert(before, line, m.cpu.m16(m.cpu.a, m.cpu.f), int(parts[i], 16))
+                i += 1
+
+                my_assert(before, line, m.cpu.m16(m.cpu.b, m.cpu.c), int(parts[i], 16))
+                i += 1
+
+                my_assert(before, line, m.cpu.m16(m.cpu.d, m.cpu.e), int(parts[i], 16))
+                i += 1
+
+                my_assert(before, line, m.cpu.m16(m.cpu.h, m.cpu.l), int(parts[i], 16))
+                i += 1
+
+                i += 1 # AF_
+                i += 1 # BC_
+                i += 1 # DE_
+                i += 1 # HL_
+
+                my_assert(before, line, m.cpu.ix, int(parts[i], 16))
+                i += 1
+
+                my_assert(before, line, m.cpu.iy, int(parts[i], 16))
+                i += 1
+
+                my_assert(before, line, m.cpu.pc, int(parts[i], 16))
+                i += 1
+
+                my_assert(before, line, m.cpu.sp, int(parts[i], 16))
+                i += 1
+
+                i += 1  # i
+                i += 1  # r
+                i += 1  # r7
+
+                my_assert(before, line, m.cpu.im, int(parts[i], 16))
+                i += 1
+
+                i += 1  # iff1
+                i += 1  # iff2
+
+                # obsoloted by memchk: my_assert(before, line, read_mem(m.cpu.m16(m.cpu.h, m.cpu.l)), int(parts[i], 16))
+                i += 1
+
+                assert i == len(parts)
+
+        n_tests += 1
+
+        now = time.time()
+        if now - pt >= 1.0 and show:
+            print('%.1f' % ((n_tests / (now - startt)) * nproc))
+            pt = now
+
+q = multiprocessing.Queue(16384)
+
+for i in range(nproc):
+    reader_p = multiprocessing.Process(target=worker, args=(q, i == 0,))
+    reader_p.daemon = True
+    reader_p.start()
+
+batch = []
+for line in open(file_, 'r'):
     line = line.rstrip()
-
     parts = line.split()
-    i = 1
-
-    lines += 1
 
     if parts[0] == 'before':
-        ntests += 1
+        if batch:
+            q.put(batch)
+            batch = []
 
-        init_test()
+    batch.append(line)
 
-        before = line
+if batch:
+    q.put(batch)
 
-        memp = 0
-        while parts[i] != '|':
-            write_mem(memp, int(parts[i], 16))
-            i += 1
-            memp += 1
+print('Data loaded')
 
-        i += 1  # skip |
-        i += 1  # skip endaddr
-        i += 1  # skip cycles
+q.join()
 
-        cpu.a, cpu.f = cpu.u16(int(parts[i], 16))
-        i += 1
-        cpu.b, cpu.c = cpu.u16(int(parts[i], 16))
-        i += 1
-        cpu.d, cpu.e = cpu.u16(int(parts[i], 16))
-        i += 1
-        cpu.h, cpu.l = cpu.u16(int(parts[i], 16))
-        i += 1
+print('Data processed')
 
-        i += 1 # AF_
-        i += 1 # BC_
-        i += 1 # DE_
-        i += 1 # HL_
+for i in range(len(threads)):
+    q.put(None)
 
-        cpu.ix = int(parts[i], 16)
-        i += 1
-
-        cpu.iy = int(parts[i], 16)
-        i += 1
-
-    elif parts[0] == 'memchk':
-        my_assert(before, line, read_mem(int(parts[1], 16)), int(parts[2], 16))
-
-    else:
-        after = line
-        while parts[i] != '|':
-            i += 1
-
-        i += 1  # skip |
-
-        endaddr = int(parts[i], 16)
-        i += 1
-
-        expcycles = int(parts[i])
-        i += 1
-
-        cycles = 0
-        while cpu.pc < endaddr:
-            cycles += cpu.step()
-
-        # my_assert(before, line, cycles, expcycles)
-
-        my_assert(before, line, cpu.m16(cpu.a, cpu.f), int(parts[i], 16))
-        i += 1
-
-        my_assert(before, line, cpu.m16(cpu.b, cpu.c), int(parts[i], 16))
-        i += 1
-
-        my_assert(before, line, cpu.m16(cpu.d, cpu.e), int(parts[i], 16))
-        i += 1
-
-        my_assert(before, line, cpu.m16(cpu.h, cpu.l), int(parts[i], 16))
-        i += 1
-
-        i += 1 # AF_
-        i += 1 # BC_
-        i += 1 # DE_
-        i += 1 # HL_
-
-        my_assert(before, line, cpu.ix, int(parts[i], 16))
-        i += 1
-
-        my_assert(before, line, cpu.iy, int(parts[i], 16))
-        i += 1
-
-        my_assert(before, line, cpu.pc, int(parts[i], 16))
-        i += 1
-
-        my_assert(before, line, cpu.sp, int(parts[i], 16))
-        i += 1
-
-        i += 1  # i
-        i += 1  # r
-        i += 1  # r7
-
-        my_assert(before, line, cpu.im, int(parts[i], 16))
-        i += 1
-
-        i += 1  # iff1
-        i += 1  # iff2
-
-        # obsoloted by memchk: my_assert(before, line, read_mem(cpu.m16(cpu.h, cpu.l)), int(parts[i], 16))
-        i += 1
-
-        assert i == len(parts)
-
-    now = time.time()
-    if now - pt >= 1.0:
-        took = now - startt
-        print('%d lines, %.1f tests/s' % (lines, ntests / took))
-        pt = now
-
-took = time.time() - startt
-print('All fine, took %.1f seconds, %d lines (%.1f lines/s)' % (took, lines, lines / took))
+for t in threads:
+    t.join()
