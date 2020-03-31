@@ -30,6 +30,9 @@ class NMS_1205(threading.Thread):
     def get_name(self):
         return 'NMS-1205'
 
+    def get_pages(self):
+        return []
+
     def stop(self):
         self.stop_flag = True
         self.mpo.close()

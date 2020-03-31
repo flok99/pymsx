@@ -49,6 +49,9 @@ class sound():
     def get_name(self):
         return 'PSG'
 
+    def get_pages(self):
+        return []
+
     def start_audio(self):
         pid = os.fork()
 

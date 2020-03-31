@@ -22,6 +22,9 @@ class rom:
     def get_name(self):
         return 'ROM'
 
+    def get_pages(self):
+        return [ p for p in range(0, (len(self.rom) + 16383) // 16384) ]
+
     def write_mem(self, a: int, v: int) -> None:
         pass
 

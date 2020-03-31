@@ -21,8 +21,8 @@ class memmap:
     def get_name(self):
         return 'memory mapper'
 
-    def get_n_pages(self):
-        return 4
+    def get_pages(self):
+        return [ 0, 1, 2, 3 ]
 
     def split_addr(self, a: int) -> Tuple[int, int]:
         page = self.mapper[a >> 14]

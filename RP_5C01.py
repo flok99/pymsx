@@ -16,6 +16,9 @@ class RP_5C01:
     def get_name(self):
         return 'RP-5C01 (RTC)'
 
+    def get_pages(self):
+        return []
+
     def read_io(self, a: int) -> int:
         now = time.localtime()
 

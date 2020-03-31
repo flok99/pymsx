@@ -36,6 +36,9 @@ class screen_kb:
     def get_name(self):
         return 'screen/keyboard'
 
+    def get_pages(self):
+        return []
+
     def init_screen(self):
         # pipes for data to the VDP
         self.pipe_tv_in, self.pipe_tv_out = os.pipe()       

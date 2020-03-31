@@ -10,6 +10,9 @@ class screen_kb_dummy:
 
     def get_name(self):
         return 'screen/keyboard'
+    
+    def get_pages(self):
+        return []
 
     def interrupt(self):
         pass

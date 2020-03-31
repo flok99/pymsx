@@ -82,6 +82,9 @@ class disk:
     def get_name(self):
         return 'FDC'
 
+    def get_pages(self):
+        return [ p for p in range(1, 1 + (len(self.rom) + 16383) // 16384) ]
+
     def file_offset(self, side: int, track: int, sector: int) -> int:
         o = (sector - 1) * 512 + (track * 9 * 512) + (80 * 9 * 512) * side
         self.debug('file offset side %d track %d sector %d: %d' % (side, track, sector, o))

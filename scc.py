@@ -26,8 +26,8 @@ class scc:
     def get_name(self):
         return 'SCC'
 
-    def get_n_pages(self):
-        return 2
+    def get_pages(self):
+        return [1, 2]
 
     def split_addr(self, a: int) -> Tuple[int, int]:
         bank = (a >> 13) - 2
