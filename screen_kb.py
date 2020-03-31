@@ -16,9 +16,8 @@ class screen_kb:
         INTERRUPT = 2
         GET_REG = 3
 
-    def __init__(self, io):
+    def __init__(self):
         self.stop_flag = False
-        self.io = io
 
         self.keyboard_queue = []
         self.k_lock = threading.Lock()

@@ -228,7 +228,7 @@ b.io_write[0x80] = terminator
 b.io_read[0x81] = invoke_load_cas
 b.io_write[0x91] = printer_out
 
-dk = screen_kb(b)
+dk = screen_kb()
 b.add_dev(dk, None, None)
 
 cpu = z80(b, debug, dk)
