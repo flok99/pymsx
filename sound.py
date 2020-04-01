@@ -34,7 +34,7 @@ class sound():
         self.f1 = self.f2 = self.f3 = 0
         self.l1 = self.l2 = self.l3 = 0
 
-        self.channel_on = [ [ 0, 0 ] ] * 16
+        self.channel_on = [ [0, 0] for k in range(16) ]
 
         self.pipein, self.pipeout = os.pipe()       
         self.lock = threading.Lock()
