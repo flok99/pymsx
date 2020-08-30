@@ -4,10 +4,11 @@ import pygame  # type: ignore
 
 class Renderer:
 
-    def __init__(self, rescale : int = 1):
+    def __init__(self, wrescale : int = 1, hrescale : int = 1):
 
         # video
-        self.rescale : int = rescale
+        self.wrescale : int = wrescale
+        self.hrescale : int = hrescale
         pygame.init()
         pygame.fastevent.init()
         pygame.display.set_caption('pymsx')
@@ -18,19 +19,20 @@ class Renderer:
         self.kb_init()
 
     def win_resize(self, w : int, h : int):
-        rescale = int(self.rescale)
-        self.screen = pygame.display.set_mode((w*rescale, h*rescale), pygame.RESIZABLE)
+        wrescale, hrescale = int(self.wrescale), int(self.hrescale)
+        self.screen = pygame.display.set_mode((w*wrescale, h*hrescale), pygame.RESIZABLE)
         self.arr_rescaled = pygame.surfarray.array2d(self.screen)
-        return self.arr_rescaled[:w, :h]
+        arr_original = self.arr_rescaled[:w, :h]
+        return arr_original
 
     def win_draw(self, arr) -> None:
 
         # create rescaled array
         arr = arr.copy()
-        rescale = int(self.rescale)
-        for xi in range(rescale):
-            for yi in range(rescale):
-                self.arr_rescaled[xi::rescale, yi::rescale] = arr
+        wrescale, hrescale = int(self.wrescale), int(self.hrescale)
+        for xi in range(wrescale):
+            for yi in range(hrescale):
+                self.arr_rescaled[xi::wrescale, yi::hrescale] = arr
 
         pygame.surfarray.blit_array(self.screen, self.arr_rescaled)
         pygame.display.flip()

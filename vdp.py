@@ -13,7 +13,7 @@ import traceback
 import renderer
 
 class vdp(threading.Thread):
-    def __init__(self, rescale : int = 1):
+    def __init__(self, wrescale : int = 1, hrescale : int = 1):
 
         self.ram: List[int] = [ 0 ] * 131072
 
@@ -58,7 +58,7 @@ class vdp(threading.Thread):
 
         self.cv = threading.Condition()
 
-        self.renderer = renderer.Renderer(rescale)
+        self.renderer = renderer.Renderer(wrescale, hrescale)
 
         super(vdp, self).__init__()
 
@@ -835,7 +835,8 @@ class vdp(threading.Thread):
                     pass
 
                 # took = time.time() - s
-                # print('display [vm {:02d} rescale x{:1}] update took: {:.2f} ms'.format(vm, self.renderer.rescale, 1000*took))
+                # sfmt = 'display [vm {:02d} rescale x{:1}, x{:1}] update took: {:.2f} ms'
+                # print(sfmt.format(vm, self.renderer.wrescale, self.renderer.hrescale, 1000*took))
 
                 #self.debug_msg_lock.acquire()
                 #if self.debug_msg:
