@@ -1,22 +1,19 @@
 # (C) 2020 by Folkert van Heusden <mail@vanheusden.com>
 # released under AGPL v3.0
 
-# implements VDP and also kb because of pygame
+# implements VDP logic
 
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
-import pygame  # type: ignore
 import sys
 import threading
 import time
 from typing import List
 import traceback
+import renderer
 
 class vdp(threading.Thread):
-    def __init__(self):
-        pygame.init()
-        pygame.fastevent.init()
-        pygame.display.set_caption('pymsx')
+    def __init__(self, rescale : int = 1):
 
         self.ram: List[int] = [ 0 ] * 131072
 
@@ -25,12 +22,8 @@ class vdp(threading.Thread):
         self.vdp_addr_b1 = None
         self.vdp_read_ahead: int = 0
 
-        self.keyboard_row: int = 0
-
         self.registers: List[int] = [ 0 ] * 47
         self.status_register: List[int] = [ 0 ] * 10
-
-        self.keys_pressed: dict = {}
 
         self.stop_flag: bool = False
 
@@ -65,27 +58,13 @@ class vdp(threading.Thread):
 
         self.cv = threading.Condition()
 
-        self.init_kb()
+        self.renderer = renderer.Renderer(rescale)
 
         super(vdp, self).__init__()
 
     def resize_window(self, w: int, h: int):
-        self.screen = pygame.display.set_mode((w, h), pygame.RESIZABLE)
-        self.surface = pygame.Surface((w, h))
-        self.arr = pygame.surfarray.array2d(self.screen)
-
-    def init_kb(self):
-        self.keys = [ None ] * 16
-        self.keys[0] = ( pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7 )
-        self.keys[1] = ( pygame.K_8, pygame.K_9, pygame.K_MINUS, pygame.K_PLUS, pygame.K_BACKSLASH, pygame.K_LEFTBRACKET, pygame.K_RIGHTBRACKET, pygame.K_SEMICOLON )
-        self.keys[2] = ( pygame.K_QUOTE, pygame.K_BACKQUOTE, pygame.K_COMMA, pygame.K_PERIOD, pygame.K_SLASH, None, pygame.K_a, pygame.K_b )
-        self.keys[3] = ( pygame.K_c, pygame.K_d, pygame.K_e, pygame.K_f, pygame.K_g, pygame.K_h, pygame.K_i, pygame.K_j )
-        self.keys[4] = ( pygame.K_k, pygame.K_l, pygame.K_m, pygame.K_n, pygame.K_o, pygame.K_p, pygame.K_q, pygame.K_r )
-        self.keys[5] = ( pygame.K_s, pygame.K_t, pygame.K_u, pygame.K_v, pygame.K_w, pygame.K_x, pygame.K_y, pygame.K_z )
-        self.keys[6] = ( pygame.K_LSHIFT, pygame.K_LCTRL, None, pygame.K_CAPSLOCK, None, pygame.K_F1, pygame.K_F2, pygame.K_F3 )
-        self.keys[7] = ( pygame.K_F4, pygame.K_F5, pygame.K_ESCAPE, pygame.K_TAB, None, pygame.K_BACKSPACE, None, pygame.K_RETURN )
-        self.keys[8] = ( pygame.K_SPACE, None, None, None, pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN, pygame.K_RIGHT )
-
+        self.arr = self.renderer.win_resize(w, h)
+        
     def rgb_to_i(self, r: int, g: int, b: int) -> int:
         return (r << 16) | (g << 8) | b
 
@@ -345,22 +324,6 @@ class vdp(threading.Thread):
         else:
             print('vdp::write_io: Unexpected port %02x' % a)
 
-    def read_keyboard(self) -> int:
-        cur_row = self.keys[self.keyboard_row]
-        if not cur_row:
-            # print('kb fail', self.keyboard_row)
-            return 255
-
-        bits = bit_nr = 0
-
-        for key in cur_row:
-            if key and key in self.keys_pressed and self.keys_pressed[key]:
-                bits |= 1 << bit_nr
-
-            bit_nr += 1
-
-        return bits ^ 0xff
-
     def read_io(self, a: int) -> int:
         vm = self.video_mode()
 
@@ -412,7 +375,7 @@ class vdp(threading.Thread):
             self.vdp_addr_state = False
 
         elif a == 0xa9:
-            rc = self.read_keyboard() 
+            rc = self.renderer.kb_read() 
 
         else:
             print('vdp::read_io: Unexpected port %02x' % a)
@@ -474,26 +437,6 @@ class vdp(threading.Thread):
 
             else:
                 self.draw_sprite_part(spx, spy, pattern_index, rgb, i)
-
-    def poll_kb(self) -> None:
-        events = pygame.fastevent.get()
-
-        for event in events:
-            if event.type == pygame.QUIT:
-                self.stop_flag = True
-                break
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
-                    print('MARKER', file=sys.stderr, flush=True)
-
-                self.keys_pressed[event.key] = True
-
-            elif event.type == pygame.KEYUP:
-                self.keys_pressed[event.key] = False
-
-            else:
-                print(event)
 
     def get_pixel(self, vm: int, x: int, y: int, highspeed: bool) -> int:
         if vm == 6:  # screen 5
@@ -656,12 +599,7 @@ class vdp(threading.Thread):
         bg = self.rgb[self.registers[7] & 15]
         fg = self.rgb[self.registers[7] >> 4]
 
-        par = pygame.PixelArray(self.surface)
-
-        pb = None
         cache = [ None ] * 256
-
-        tiles_offset = colors_offset = 0
 
         for map_index in range(0, cols * 24):
             cur_char_nr = self.ram[bg_map + map_index]
@@ -686,8 +624,7 @@ class vdp(threading.Thread):
                 for x in range(0, 8):
                     self.arr[scr_x + x, scr_y + y] = cache[cur_char_nr][y * 8 + x]
 
-        pygame.surfarray.blit_array(self.screen, self.arr)
-        pygame.display.flip()
+        self.renderer.win_draw(self.arr)
 
     def draw_screen_1(self):
         bg_map    = (self.registers[2] &  15) << 10
@@ -696,12 +633,8 @@ class vdp(threading.Thread):
 
         cols = 32
 
-        par = pygame.PixelArray(self.surface)
-
-        pb = None
         cache = [ None ] * 256
 
-        tiles_offset = colors_offset = 0
 
         for map_index in range(0, 32 * 24):
             cur_char_nr = self.ram[bg_map + map_index]
@@ -730,16 +663,12 @@ class vdp(threading.Thread):
                 for x in range(0, 8):
                     self.arr[scr_x + x, scr_y + y] = cache[cur_char_nr][y * 8 + x]
 
-        pygame.surfarray.blit_array(self.screen, self.arr)
-        pygame.display.flip()
-        par = pygame.PixelArray(self.surface)
+        self.renderer.win_draw(self.arr)
 
     def draw_screen_2(self):
         bg_map    = (self.registers[2] &  15) << 10
         bg_colors = (self.registers[3] & 128) <<  6
         bg_tiles  = (self.registers[4] &   4) << 11
-
-        par = pygame.PixelArray(self.surface)
 
         pb = None
         cache = None
@@ -786,9 +715,7 @@ class vdp(threading.Thread):
                     self.arr[scr_x + x, scr_y + y] = cache[cur_char_nr][y * 8 + x]
 
         self.draw_sprites()
-
-        pygame.surfarray.blit_array(self.screen, self.arr)
-        pygame.display.flip()
+        self.renderer.win_draw(self.arr)
 
     def draw_screen_6(self):
         name_table = (self.registers[2] & 0x60) << 9
@@ -809,9 +736,7 @@ class vdp(threading.Thread):
                 self.arr[x + 3, y] = self.rgb[byte & 3]
 
         self.draw_sprites()
-
-        pygame.surfarray.blit_array(self.screen, self.arr)
-        pygame.display.flip()
+        self.renderer.win_draw(self.arr)
 
     def draw_screen_5(self):
         name_table = 0
@@ -830,9 +755,7 @@ class vdp(threading.Thread):
                 self.arr[x + 1, y] = p2
 
         self.draw_sprites()
-
-        pygame.surfarray.blit_array(self.screen, self.arr)
-        pygame.display.flip()
+        self.renderer.win_draw(self.arr)
 
     def draw_screen_8(self):
         name_table = 0
@@ -847,9 +770,7 @@ class vdp(threading.Thread):
                 self.arr[x, y] = self.sc8_rgb_map[byte][0]
 
         self.draw_sprites()
-
-        pygame.surfarray.blit_array(self.screen, self.arr)
-        pygame.display.flip()
+        self.renderer.win_draw(self.arr)
 
     def run(self):
         try:
@@ -858,12 +779,12 @@ class vdp(threading.Thread):
             pvm = None
 
             while not self.stop_flag:
-                self.poll_kb()
+                self.renderer.kb_poll()
                 time.sleep(0.02)
 
                 #msg = self.debug_msg[0:79]
 
-                s = time.time()
+                # s = time.time()
 
                 vm = self.video_mode()
 
@@ -913,7 +834,8 @@ class vdp(threading.Thread):
                     print('Unsupported resolution', vm)
                     pass
 
-                took = time.time() - s
+                # took = time.time() - s
+                # print('display [vm {:02d} rescale x{:1}] update took: {:.2f} ms'.format(vm, self.renderer.rescale, 1000*took))
 
                 #self.debug_msg_lock.acquire()
                 #if self.debug_msg:
