@@ -16,7 +16,7 @@ class screen_kb:
         INTERRUPT = 2
         GET_REG = 3
 
-    def __init__(self, io):
+    def __init__(self, io, options):
         self.stop_flag = False
         self.io = io
 
@@ -26,7 +26,7 @@ class screen_kb:
         self.debug_msg_lock = threading.Lock()
         self.debug_msg = None
 
-        self.init_screen()
+        self.init_screen(options)
 
         super(screen_kb, self).__init__()
 
@@ -36,7 +36,7 @@ class screen_kb:
     def get_name(self):
         return 'screen/keyboard'
 
-    def init_screen(self):
+    def init_screen(self, options):
         # pipes for data to the VDP
         self.pipe_tv_in, self.pipe_tv_out = os.pipe()       
 
@@ -46,7 +46,9 @@ class screen_kb:
         self.pid = os.fork()
 
         if self.pid == 0:
-            self.vdp = vdp()
+            wrescale = options.wrescale if options.wrescale else 1
+            hrescale = options.hrescale if options.hrescale else 1
+            self.vdp = vdp(wrescale, hrescale)
             self.vdp.start()
             
             while True:
