@@ -2,7 +2,7 @@
 # released under AGPL v3.0
 
 class screen_kb_dummy:
-    def __init__(self, io):
+    def __init__(self, io, options):
         pass
 
     def get_ios(self):

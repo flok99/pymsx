@@ -57,7 +57,7 @@ class Renderer:
                 self.stop_flag = True
                 break
 
-            if event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN: 
                 if event.key == pygame.K_RETURN:
                     print('MARKER', file=sys.stderr, flush=True)
 
@@ -80,7 +80,9 @@ class Renderer:
         for key in cur_row:
             if key and key in self.keys_pressed and self.keys_pressed[key]:
                 bits |= 1 << bit_nr
-
             bit_nr += 1
 
         return bits ^ 0xff
+
+    def kb_set_row(self, v):
+        self.keyboard_row = v

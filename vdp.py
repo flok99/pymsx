@@ -319,7 +319,7 @@ class vdp(threading.Thread):
                 self.put_vdp_2c(v)
 
         elif a == 0xaa:  # PPI register C
-            self.keyboard_row = v & 15
+            self.renderer.kb_set_row(v & 15)
 
         else:
             print('vdp::write_io: Unexpected port %02x' % a)
