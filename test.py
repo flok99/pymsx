@@ -20,6 +20,7 @@ slots.append(( None, None, None, None ))
 pages = [ 0, 0, 0, 0]
 
 def reset_mem():
+    global ram0
     ram0 = [ 0 ] * 16384
 
 def read_mem(a):

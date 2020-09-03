@@ -46,9 +46,10 @@ class screen_kb:
         self.pid = os.fork()
 
         if self.pid == 0:
-            wrescale = options.wrescale if options.wrescale else 1
-            hrescale = options.hrescale if options.hrescale else 1
-            self.vdp = vdp(wrescale, hrescale)
+            wrescale = int(options.wrescale) if options.wrescale else 1
+            hrescale = int(options.hrescale) if options.hrescale else 1
+            scanline = float(options.scanline) / 100.0 if options.scanline else 0
+            self.vdp = vdp(wrescale, hrescale, scanline)
             self.vdp.start()
             
             while True:

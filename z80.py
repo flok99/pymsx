@@ -4,6 +4,12 @@
 from typing import Tuple, Callable, List
 import time
 
+FREQ_CLOCK = 3579545  # [Hz]
+FREQ_VDP_REFRESH = 50  # [Hz]
+
+# FREQ_CLOCK = 3584160  # [Hz]
+# FREQ_VDP_REFRESH = 60  # [Hz]
+
 class z80:
     def __init__(self, read_mem, write_mem, read_io, write_io, debug, screen) -> None:
         self.read_mem = read_mem
@@ -456,7 +462,7 @@ class z80:
         self.main_jumps[0xff] = self._rst
 
     def step(self):
-        if self.interrupt_cycles >= 3579545 / 50:
+        if self.interrupt_cycles >= FREQ_CLOCK / FREQ_VDP_REFRESH:
             if self.screen.IE0():
                 self.interrupt()
                 self.interrupt_cycles = 0
