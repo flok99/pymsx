@@ -28,7 +28,7 @@ def write_io(a, v):
 def debug(x):
     pass
 
-dk = screen_kb_dummy(io)
+dk = screen_kb_dummy(io, None)
 dk.start()
 
 cpu = z80(read_mem, write_mem, read_io, write_io, debug, dk)
