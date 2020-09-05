@@ -13,7 +13,7 @@ import traceback
 import renderer
 
 class vdp(threading.Thread):
-    def __init__(self, wrescale : int = 1, hrescale : int = 1):
+    def __init__(self, wrescale, hrescale, scanline):
 
         self.ram: List[int] = [ 0 ] * 131072
 
@@ -48,7 +48,7 @@ class vdp(threading.Thread):
         self.numbery: int = 0
         self.vdp_cmd = None
         self.start_destinationx: int = 0
-        start_destinationy: int = 0
+        self.start_destinationy: int = 0
         self.pixelsleft: int = 0
         self.pixeloffset: int = 0
         self.highspeed: bool = False
@@ -58,12 +58,12 @@ class vdp(threading.Thread):
 
         self.cv = threading.Condition()
 
-        self.renderer = renderer.Renderer(wrescale, hrescale)
+        self.renderer = renderer.Renderer(wrescale, hrescale, scanline)
 
         super(vdp, self).__init__()
 
     def resize_window(self, w: int, h: int):
-        self.arr = self.renderer.win_resize(w, h)
+        self.arr = self.renderer.scrn_resize(w, h)
         
     def rgb_to_i(self, r: int, g: int, b: int) -> int:
         return (r << 16) | (g << 8) | b
@@ -624,7 +624,7 @@ class vdp(threading.Thread):
                 for x in range(0, 8):
                     self.arr[scr_x + x, scr_y + y] = cache[cur_char_nr][y * 8 + x]
 
-        self.renderer.win_draw(self.arr)
+        self.renderer.scrn_draw(self.arr)
 
     def draw_screen_1(self):
         bg_map    = (self.registers[2] &  15) << 10
@@ -663,7 +663,7 @@ class vdp(threading.Thread):
                 for x in range(0, 8):
                     self.arr[scr_x + x, scr_y + y] = cache[cur_char_nr][y * 8 + x]
 
-        self.renderer.win_draw(self.arr)
+        self.renderer.scrn_draw(self.arr)
 
     def draw_screen_2(self):
         bg_map    = (self.registers[2] &  15) << 10
@@ -715,7 +715,7 @@ class vdp(threading.Thread):
                     self.arr[scr_x + x, scr_y + y] = cache[cur_char_nr][y * 8 + x]
 
         self.draw_sprites()
-        self.renderer.win_draw(self.arr)
+        self.renderer.scrn_draw(self.arr)
 
     def draw_screen_6(self):
         name_table = (self.registers[2] & 0x60) << 9
@@ -736,7 +736,7 @@ class vdp(threading.Thread):
                 self.arr[x + 3, y] = self.rgb[byte & 3]
 
         self.draw_sprites()
-        self.renderer.win_draw(self.arr)
+        self.renderer.scrn_draw(self.arr)
 
     def draw_screen_5(self):
         name_table = 0
@@ -755,7 +755,7 @@ class vdp(threading.Thread):
                 self.arr[x + 1, y] = p2
 
         self.draw_sprites()
-        self.renderer.win_draw(self.arr)
+        self.renderer.scrn_draw(self.arr)
 
     def draw_screen_8(self):
         name_table = 0
@@ -770,7 +770,7 @@ class vdp(threading.Thread):
                 self.arr[x, y] = self.sc8_rgb_map[byte][0]
 
         self.draw_sprites()
-        self.renderer.win_draw(self.arr)
+        self.renderer.scrn_draw(self.arr)
 
     def run(self):
         try:

@@ -4,11 +4,12 @@ import pygame  # type: ignore
 
 class Renderer:
 
-    def __init__(self, wrescale : int = 1, hrescale : int = 1):
+    def __init__(self, wrescale, hrescale, scanline):
 
         # video
         self.wrescale : int = wrescale
         self.hrescale : int = hrescale
+        self.scanline : float = scanline
         pygame.init()
         pygame.fastevent.init()
         pygame.display.set_caption('pymsx')
@@ -18,23 +19,34 @@ class Renderer:
         self.keys_pressed: dict = {}
         self.kb_init()
 
-    def win_resize(self, w : int, h : int):
+    def scrn_resize(self, w : int, h : int):
         wrescale, hrescale = int(self.wrescale), int(self.hrescale)
         self.screen = pygame.display.set_mode((w*wrescale, h*hrescale), pygame.RESIZABLE)
         self.arr_rescaled = pygame.surfarray.array2d(self.screen)
         arr_original = self.arr_rescaled[:w, :h]
         return arr_original
 
-    def win_draw(self, arr) -> None:
+    def scrn_draw(self, arr) -> None:
+
+        wrescale, hrescale = int(self.wrescale), int(self.hrescale)
 
         # create rescaled array
-        arr = arr.copy()
-        wrescale, hrescale = int(self.wrescale), int(self.hrescale)
-        for xi in range(wrescale):
-            for yi in range(hrescale):
-                self.arr_rescaled[xi::wrescale, yi::hrescale] = arr
+        if wrescale > 1 or hrescale > 1:
+            arr = arr.copy()
+            for xi in range(wrescale):
+                for yi in range(hrescale):
+                    self.arr_rescaled[xi::wrescale, yi::hrescale] = arr
+            pygame.surfarray.blit_array(self.screen, self.arr_rescaled)
+        else:
+            pygame.surfarray.blit_array(self.screen, arr)
+        
+        # add scanline effect
+        if self.scanline > 0:
+            pixels = pygame.surfarray.array3d(self.screen)
+            for idx in range(hrescale - 1):
+                pixels[:,idx::(hrescale+1), :] = pixels[:,idx::(hrescale+1),:] * (1 - self.scanline)
+            pygame.surfarray.blit_array(self.screen, pixels)
 
-        pygame.surfarray.blit_array(self.screen, self.arr_rescaled)
         pygame.display.flip()
 
     def kb_init(self):
