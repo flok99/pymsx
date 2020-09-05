@@ -276,6 +276,8 @@ def init_io():
 def read_io(a: int) -> int:
     global io_read
 
+    debug('read port %02x' % a)
+
     if io_read[a]:
         return io_read[a](a)
 
@@ -285,6 +287,8 @@ def read_io(a: int) -> int:
  
 def write_io(a: int, v: int) -> None:
     global io_write
+
+    debug('write port %02x: %02x' % (a, v))
 
     io_values[a] = v
 

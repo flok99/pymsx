@@ -163,11 +163,16 @@ class vdp(threading.Thread):
             self.start_destinationy = self.destinationy
             self.highspeed = False
 
+            self.status_register[2] |= 1
+            
             if self.vdp_cmd == 0x05:
                 self.put_vdp_2c(self.registers[0x2c])
 
             elif self.vdp_cmd == 0x07:
                 self.draw_line(self.video_mode(), self.destinationx, self.destinationy, self.numberx, self.numbery, self.registers[0x2d], self.registers[0x2c])
+
+            elif self.vdp_cmd == 0x09 or self.vdp_cmd == 0x0d:
+                self.copy_rect(self.video_mode(), self.vdp_cmd == 0x0d)
 
             elif self.vdp_cmd == 0x0b:
                 self.put_vdp_2c(self.registers[0x2c])
@@ -175,13 +180,12 @@ class vdp(threading.Thread):
 
             elif self.vdp_cmd == 0x0c:
                 self.highspeed = True
-                self.fill_rect(self.video_mode(), self.destinationx, self.destinationy, self.numberx, self.numbery, self.registers[0x2c]);
+                self.fill_rect(self.video_mode(), self.destinationx, self.destinationy, self.numberx, self.numbery, self.registers[0x2c])
 
             else:
                 print('Unsupported VDP command %02x' % self.vdp_cmd)
+                self.status_register[2] &= ~1
 
-            self.status_register[2] |= 1
-            
             # FIXME
 
         self.resize_trigger = True
@@ -189,24 +193,12 @@ class vdp(threading.Thread):
     def put_vdp_2c(self, v):
         # print('Call to put_vdp_2c %02x' % v)
         if self.pixelsleft == 0:
+            self.status_register[2] &= ~1
             return
 
         vm = self.video_mode()
 
         if self.vdp_cmd == 0x05 or self.vdp_cmd == 0x0b:  # logical put pixels, cpu -> vram
-            y = self.pixeloffset // self.numberx
-            x = self.pixeloffset - (y * self.numberx)
-
-            self.plot(vm, self.destinationx, self.destinationy, v, self.highspeed)
-            self.pixeloffset += 1
-            self.pixelsleft -= 1
-
-            self.destinationx += 1
-            if self.destinationx == self.start_destinationx + self.numberx:
-                self.destinationx = self.start_destinationx
-                self.destinationy += 1
-
-        elif self.vdp_cmd == 0x0c:  # fill rect
             y = self.pixeloffset // self.numberx
             x = self.pixeloffset - (y * self.numberx)
 
@@ -604,6 +596,15 @@ class vdp(threading.Thread):
             for x in range(destinationx, destinationx + numberx):
                 self.plot(video_mode, x, y, color, self.highspeed)
 
+        self.status_register[2] &= ~1
+
+    def copy_rect(self, video_mode: int, highspeed: bool):
+        for y in range(self.destinationy, self.destinationy + self.numbery):
+            for x in range(self.destinationx, self.destinationx + self.numberx):
+                self.plot(video_mode, x, y, self.get_pixel(video_mode, x, y, False), highspeed)
+
+        self.status_register[2] &= ~1
+
     def draw_line(self, video_mode: int, destinationx: int, destinationy: int, numberx: int, numbery: int, flags: int, color: int):
         # print('draw_line', destinationx, destinationy, numberx, numbery)
         error = 0.0
@@ -646,6 +647,8 @@ class vdp(threading.Thread):
 
                 x += dx
                 numberx -= 1
+
+        self.status_register[2] &= ~1
 
     def draw_screen_0(self, vm):
         cols = 40 if vm == 16 else 80
