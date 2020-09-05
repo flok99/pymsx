@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 from typing import List
+from z80 import FREQ_CLOCK
 
 class sound():
     T_AY_3_8910 = 0
@@ -197,11 +198,11 @@ class sound():
         nn_3 = ((self.scc_regs[0x85] & 15) << 8) + self.scc_regs[0x84]
         nn_4 = ((self.scc_regs[0x87] & 15) << 8) + self.scc_regs[0x86]
         nn_5 = ((self.scc_regs[0x89] & 15) << 8) + self.scc_regs[0x88]
-        freq_1 = 3579545.0 / 32 / (nn_1 if nn_1 > 0 else 1)
-        freq_2 = 3579545.0 / 32 / (nn_2 if nn_2 > 0 else 1)
-        freq_3 = 3579545.0 / 32 / (nn_3 if nn_3 > 0 else 1)
-        freq_4 = 3579545.0 / 32 / (nn_4 if nn_4 > 0 else 1)
-        freq_5 = 3579545.0 / 32 / (nn_5 if nn_5 > 0 else 1)
+        freq_1 = FREQ_CLOCK / 32 / (nn_1 if nn_1 > 0 else 1)
+        freq_2 = FREQ_CLOCK / 32 / (nn_2 if nn_2 > 0 else 1)
+        freq_3 = FREQ_CLOCK / 32 / (nn_3 if nn_3 > 0 else 1)
+        freq_4 = FREQ_CLOCK / 32 / (nn_4 if nn_4 > 0 else 1)
+        freq_5 = FREQ_CLOCK / 32 / (nn_5 if nn_5 > 0 else 1)
         self.mul_scc_1 = (freq_1 / self.sr) * 32.0
         self.mul_scc_2 = (freq_2 / self.sr) * 32.0
         self.mul_scc_3 = (freq_3 / self.sr) * 32.0

@@ -109,7 +109,7 @@ def my_assert(f, r, what):
         print('')
         # sys.exit(1)
 
-dk = screen_kb_dummy(io)
+dk = screen_kb_dummy(io, None)
 dk.start()
 
 cpu = z80(read_mem, write_mem, read_io, write_io, debug, dk)

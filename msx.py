@@ -70,6 +70,9 @@ parser.add_option('-C', '--cas-file', dest='cas_file', help='select a .cas file 
 parser.add_option('-A', '--ascii-16kb', action='append', dest='a16_rom', help='select an ASCII-16kB ROM to use, format: slot:subslot:rom-filename')
 parser.add_option('-M', '--msx-dos2', action='append', dest='msxdos2_rom', help='select an MSX-DOS2 ROM to use, format: slot:subslot:rom-filename')
 parser.add_option('-T', '--time', action='store_true', dest='time', help='enable RTC')
+parser.add_option('-W', '--wrescale', dest='wrescale', help='Width rescale factor, integer')
+parser.add_option('-H', '--hrescale', dest='hrescale', help='Height rescale factor, integer')
+parser.add_option('-L', '--scanline', dest='scanline', help='Scanline percentage, 0-100%')
 (options, args) = parser.parse_args()
 
 debug_log = options.debug_log
@@ -305,7 +308,7 @@ def cpu_thread():
     while not stop_flag:
         cpu.step()
 
-dk = screen_kb(io_values)
+dk = screen_kb(io_values, options)
 
 cpu = z80(read_mem, write_mem, read_io, write_io, debug, dk)
 

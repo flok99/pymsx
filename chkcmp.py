@@ -21,7 +21,7 @@ class msx:
 
         self.ram0 = [ 0 ] * 16384
 
-        dk = screen_kb_dummy(self.io)
+        dk = screen_kb_dummy(self.io, None)
         dk.start()
 
         self.cpu = z80(self.read_mem, self.write_mem, self.read_io, self.write_io, debug, dk)
